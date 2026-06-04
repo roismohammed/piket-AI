@@ -20,12 +20,17 @@ export async function POST(req: Request) {
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const response = await openai.responses.create({
+  const response = await openai.chat.completions.create({
     model: "gpt-4.1-mini",
-    input: `Buat pesan reminder WhatsApp singkat (max 300 char), ramah, dalam Bahasa Indonesia, untuk konteks: ${parsed.data.context}. Jangan tambahkan watermark.`,
+    messages: [
+      {
+        role: "user",
+        content: `Buat pesan reminder WhatsApp singkat (max 300 char), ramah, dalam Bahasa Indonesia, untuk konteks: ${parsed.data.context}. Jangan tambahkan watermark.`,
+      },
+    ],
   });
 
-  const text = response.output_text?.trim();
+  const text = response.choices[0]?.message?.content?.trim();
 
   return NextResponse.json({
     message: text?.slice(0, 300) || `Reminder: ${parsed.data.context}`,

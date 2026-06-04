@@ -40,7 +40,8 @@ const reminderSchema = z.object({
   ).min(1, "Minimal satu penerima"),
 });
 
-type ReminderForm = z.infer<typeof reminderSchema>;
+type ReminderFormInput = z.input<typeof reminderSchema>;
+type ReminderFormOutput = z.output<typeof reminderSchema>;
 
 interface ReminderRecipient {
   id?: string;
@@ -72,7 +73,7 @@ const dayOptions = [
   { value: 6, label: "Sab" },
 ];
 
-const defaultValues: ReminderForm = {
+const defaultValues: ReminderFormInput = {
   title: "",
   message: "",
   schedule_type: "daily",
@@ -108,8 +109,8 @@ export default function RemindersPage() {
   const { data } = useQuery({ queryKey: ["reminders"], queryFn: getReminders });
   const reminders = (data?.reminders || []) as ReminderItem[];
 
-  const form = useForm<ReminderForm>({
-    resolver: zodResolver(reminderSchema) as never,
+  const form = useForm<ReminderFormInput, unknown, ReminderFormOutput>({
+    resolver: zodResolver(reminderSchema),
     defaultValues,
   });
 
@@ -144,6 +145,23 @@ export default function RemindersPage() {
 
   const watchedDays = form.watch("days_of_week");
   const weeklyValues = useMemo(() => new Set(watchedDays), [watchedDays]);
+
+  const handleEditReminder = (reminder: ReminderItem) => {
+    setEditing(reminder);
+    setOpen(true);
+    form.reset({
+      ...defaultValues,
+      ...reminder,
+      send_date: reminder.send_date ?? undefined,
+      monthly_day: reminder.monthly_day ?? undefined,
+      days_of_week: reminder.days_of_week ?? [],
+      recipients: (reminder.recipients || []).map((recipient) => ({
+        recipient_type: recipient.whatsapp_group_id ? "group" : "number",
+        value: recipient.whatsapp_number || recipient.whatsapp_group_id || "",
+        label: recipient.label || "",
+      })),
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -181,9 +199,36 @@ export default function RemindersPage() {
                   <TableCell><Switch checked={reminder.is_active} readOnly /></TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => sendNowReminderAction(reminder.id).then(() => toast.success("Permintaan send now dikirim"))}>Send Now</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setEditing(reminder); setOpen(true); form.reset({ ...defaultValues, ...reminder, send_date: reminder.send_date ?? undefined, monthly_day: reminder.monthly_day ?? undefined, days_of_week: reminder.days_of_week ?? [], recipients: (reminder.recipients || []).map((r) => ({ recipient_type: r.whatsapp_group_id ? "group" : "number", value: r.whatsapp_number || r.whatsapp_group_id || "", label: r.label || "" })) }); }}>Edit</Button>
-                      <Button size="sm" variant="destructive" onClick={async () => { await deleteReminderAction(reminder.id); toast.success("Reminder dihapus"); queryClient.invalidateQueries({ queryKey: ["reminders"] }); }}>Delete</Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            await sendNowReminderAction(reminder.id);
+                            toast.success("Permintaan send now dikirim");
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : "Gagal menjalankan send now");
+                          }
+                        }}
+                      >
+                        Send Now
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleEditReminder(reminder)}>Edit</Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={async () => {
+                          try {
+                            await deleteReminderAction(reminder.id);
+                            toast.success("Reminder dihapus");
+                            queryClient.invalidateQueries({ queryKey: ["reminders"] });
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : "Gagal menghapus reminder");
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

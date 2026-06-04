@@ -132,7 +132,8 @@ create policy "logs own reminder" on public.delivery_logs
   using (exists (select 1 from public.reminders r where r.id = reminder_id and r.user_id = auth.uid()))
   with check (exists (select 1 from public.reminders r where r.id = reminder_id and r.user_id = auth.uid()));
 
--- Replace YOUR_DOMAIN and YOUR_CRON_SECRET after deployment.
+-- Replace YOUR_DOMAIN and YOUR_CRON_SECRET after deployment, then uncomment and run this statement once.
+-- You can also run it from Supabase SQL Editor after your Vercel URL is live.
 -- select cron.schedule(
 --   'run-reminders-every-minute', '* * * * *',
 --   $$ select net.http_post(

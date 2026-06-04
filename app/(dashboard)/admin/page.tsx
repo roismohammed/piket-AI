@@ -39,17 +39,25 @@ export default function AdminPage() {
 
   const bulkUpdate = async (isActive: boolean) => {
     const supabase = createClient();
-    await supabase.from("reminders").update({ is_active: isActive }).in("id", selected);
+    const { error } = await supabase.from("reminders").update({ is_active: isActive }).in("id", selected);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success(`Berhasil ${isActive ? "mengaktifkan" : "menonaktifkan"} reminder terpilih`);
     setSelected([]);
     queryClient.invalidateQueries({ queryKey: ["reminders"] });
   };
 
   const bulkDelete = async () => {
-    await Promise.all(selected.map((id) => deleteReminderAction(id)));
-    toast.success("Reminder terpilih dihapus");
-    setSelected([]);
-    queryClient.invalidateQueries({ queryKey: ["reminders"] });
+    try {
+      await Promise.all(selected.map((id) => deleteReminderAction(id)));
+      toast.success("Reminder terpilih dihapus");
+      setSelected([]);
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus reminder terpilih");
+    }
   };
 
   return (
